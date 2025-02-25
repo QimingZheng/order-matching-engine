@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <condition_variable>
+#include <map>
 #include <queue>
 #include <thread>
 #include <unordered_map>
@@ -65,6 +66,7 @@ class Order {
   order_id_t GetOrderId() const;
   price_t GetPrice() const;
   quantity_t GetQuantity() const;
+  time_t GetTimestamp() const;
   void Match(order_id_t, quantity_t) const;
 
   struct OrderImpl {
@@ -109,8 +111,32 @@ class PriorityQueueBasedSingleTickerOrderBook : public SingleTickerOrderBook {
   std::vector<Order> fulfilled_orders_;
 };
 
+class TableBasedSingleTickerOrderBook : public SingleTickerOrderBook {
+ public:
+  void ProcessNewOrder(Order& order) override;
+
+  std::vector<std::pair<price_t, quantity_t>> GetNthBuy(int nth) override;
+  std::vector<std::pair<price_t, quantity_t>> GetNthSell(int nth) override;
+
+ private:
+  Order& GetHighestBuy();
+  Order& GetLowestSell();
+  void PopHighestBuy();
+  void PopLowestSell();
+  void InsertBuy(Order&);
+  void InsertSell(Order&);
+
+  ticker_t ticker_;
+  std::map<price_t, std::map<time_t, Order>, std::greater<price_t>>
+      buy_side_orders_;
+  std::map<price_t, std::map<time_t, Order>> sell_side_orders_;
+  std::mutex mtx_;
+  std::vector<Order> fulfilled_orders_;
+};
+
 enum class OrderBookType {
   PRIORITY_QUEUE,
+  TABLE,
 };
 
 class OrderMatchingEngine {
