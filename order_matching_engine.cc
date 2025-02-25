@@ -1,8 +1,9 @@
-#include "order_matching_engine.h"
-
 #include <assert.h>
 
+#include <algorithm>
 #include <iostream>
+
+#include "order_matching_engine.h"
 
 Order::Order(OrderType type, ticker_t ticker, price_t price,
              quantity_t quantity, unix_time_t timestamp)

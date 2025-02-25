@@ -1,8 +1,10 @@
 #pragma once
 
+#include <atomic>
 #include <condition_variable>
 #include <queue>
 #include <thread>
+#include <unordered_map>
 #include <unordered_set>
 
 using ticker_t = std::string;
