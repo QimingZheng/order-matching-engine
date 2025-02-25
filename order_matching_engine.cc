@@ -6,42 +6,58 @@
 
 Order::Order(OrderType type, ticker_t ticker, price_t price,
              quantity_t quantity, unix_time_t timestamp)
-    : ticker_(ticker),
-      type_(type),
-      price_(price),
-      quantity_(quantity),
-      timestamp_(timestamp) {}
+    : order_impl_(new Order::OrderImpl{
+          0, ticker, type, price, quantity, timestamp, {}}) {}
 
 bool Order::operator<(const Order& other) const {
-  if (type_ == OrderType::BUY) {
-    if (price_ != other.price_) {
-      return price_ < other.price_;
+  if (order_impl_->type == OrderType::BUY) {
+    if (order_impl_->price != other.order_impl_->price) {
+      return order_impl_->price < other.order_impl_->price;
     }
-    return timestamp_ < other.timestamp_;
+    return order_impl_->timestamp < other.order_impl_->timestamp;
   } else {
-    if (price_ != other.price_) {
-      return price_ > other.price_;
+    if (order_impl_->price != other.order_impl_->price) {
+      return order_impl_->price > other.order_impl_->price;
     }
-    return timestamp_ < other.timestamp_;
+    return order_impl_->timestamp < other.order_impl_->timestamp;
   }
 }
 
 bool Order::operator>(const Order& other) const { return other < *this; }
 
-ticker_t& Order::GetTicker() { return ticker_; }
-bool Order::IsBuyOrder() const { return type_ == OrderType::BUY; }
-bool Order::IsSellOrder() const { return type_ == OrderType::SELL; }
-order_id_t Order::GetOrderId() const { return order_id_; }
-price_t Order::GetPrice() const { return price_; }
-quantity_t Order::GetQuantity() const { return quantity_; }
+ticker_t& Order::GetTicker() {
+  assert(order_impl_ != nullptr);
+  return order_impl_->ticker;
+}
+bool Order::IsBuyOrder() const {
+  assert(order_impl_ != nullptr);
+  return order_impl_->type == OrderType::BUY;
+}
+bool Order::IsSellOrder() const {
+  assert(order_impl_ != nullptr);
+  return order_impl_->type == OrderType::SELL;
+}
+order_id_t Order::GetOrderId() const {
+  assert(order_impl_ != nullptr);
+  return order_impl_->order_id;
+}
+price_t Order::GetPrice() const { return order_impl_->price; }
+quantity_t Order::GetQuantity() const {
+  assert(order_impl_ != nullptr);
+  return order_impl_->quantity;
+}
 
-void Order::SetOrderId(order_id_t id) const { order_id_ = id; }
+void Order::SetOrderId(order_id_t id) const {
+  assert(order_impl_ != nullptr);
+  order_impl_->order_id = id;
+}
 
 Order::Order() {}
 
 void Order::Match(order_id_t order_id, quantity_t quantity) const {
-  quantity_ -= quantity;
-  return matching_orders_.push_back({order_id, quantity});
+  assert(order_impl_ != nullptr);
+  order_impl_->quantity -= quantity;
+  return order_impl_->matching_orders.push_back({order_id, quantity});
 }
 
 std::vector<std::pair<price_t, quantity_t>> SingleTickerOrderBook::GetNthBuy(
@@ -49,7 +65,7 @@ std::vector<std::pair<price_t, quantity_t>> SingleTickerOrderBook::GetNthBuy(
   std::unique_lock<std::mutex> _(mtx_);
   std::vector<Order> top_orders;
   while (top_orders.size() < nth && !buy_side_orders_.empty()) {
-    top_orders.push_back(std::move(buy_side_orders_.top()));
+    top_orders.push_back(buy_side_orders_.top());
     buy_side_orders_.pop();
   }
   std::vector<std::pair<price_t, quantity_t>> ret(top_orders.size());
@@ -69,7 +85,7 @@ std::vector<std::pair<price_t, quantity_t>> SingleTickerOrderBook::GetNthSell(
   std::unique_lock<std::mutex> _(mtx_);
   std::vector<Order> top_orders;
   while (top_orders.size() < nth && !sell_side_orders_.empty()) {
-    top_orders.push_back(std::move(sell_side_orders_.top()));
+    top_orders.push_back(sell_side_orders_.top());
     sell_side_orders_.pop();
   }
   std::vector<std::pair<price_t, quantity_t>> ret(top_orders.size());
@@ -86,6 +102,7 @@ std::vector<std::pair<price_t, quantity_t>> SingleTickerOrderBook::GetNthSell(
 
 void SingleTickerOrderBook::ProcessNewOrder(Order& order) {
   std::unique_lock<std::mutex> _(mtx_);
+  auto unfulfilled_quantity = order.GetQuantity();
   if (order.IsBuyOrder()) {
     while (!sell_side_orders_.empty() && order.GetQuantity() > 0) {
       auto& best_sell = sell_side_orders_.top();
@@ -93,13 +110,15 @@ void SingleTickerOrderBook::ProcessNewOrder(Order& order) {
         if (best_sell.GetQuantity() > order.GetQuantity()) {
           auto match_quantity = order.GetQuantity();
           order.Match(best_sell.GetOrderId(), match_quantity);
-          fulfilled_orders_.emplace_back(std::move(order));
           best_sell.Match(order.GetOrderId(), match_quantity);
+          unfulfilled_quantity = order.GetQuantity();
+          fulfilled_orders_.emplace_back(std::move(order));
           break;
         } else {
           auto match_quantity = best_sell.GetQuantity();
           order.Match(best_sell.GetOrderId(), match_quantity);
           best_sell.Match(order.GetOrderId(), match_quantity);
+          unfulfilled_quantity = order.GetQuantity();
           fulfilled_orders_.emplace_back(std::move(best_sell));
           sell_side_orders_.pop();
         }
@@ -107,7 +126,7 @@ void SingleTickerOrderBook::ProcessNewOrder(Order& order) {
         break;
       }
     }
-    if (order.GetQuantity() > 0) buy_side_orders_.emplace(order);
+    if (unfulfilled_quantity > 0) buy_side_orders_.emplace(order);
   } else {
     while (!buy_side_orders_.empty() && order.GetQuantity() > 0) {
       auto& best_buy = buy_side_orders_.top();
@@ -115,21 +134,23 @@ void SingleTickerOrderBook::ProcessNewOrder(Order& order) {
         if (best_buy.GetQuantity() > order.GetQuantity()) {
           auto match_quantity = order.GetQuantity();
           order.Match(best_buy.GetOrderId(), match_quantity);
-          fulfilled_orders_.emplace_back(std::move(order));
           best_buy.Match(order.GetOrderId(), match_quantity);
+          unfulfilled_quantity = order.GetQuantity();
+          fulfilled_orders_.emplace_back(std::move(order));
           break;
         } else {
           auto match_quantity = best_buy.GetQuantity();
           order.Match(best_buy.GetOrderId(), match_quantity);
           best_buy.Match(order.GetOrderId(), match_quantity);
           fulfilled_orders_.emplace_back(std::move(best_buy));
+          unfulfilled_quantity = order.GetQuantity();
           buy_side_orders_.pop();
         }
       } else {
         break;
       }
     }
-    if (order.GetQuantity() > 0) sell_side_orders_.emplace(order);
+    if (unfulfilled_quantity > 0) sell_side_orders_.emplace(order);
   }
 }
 

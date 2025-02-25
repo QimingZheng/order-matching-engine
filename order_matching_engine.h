@@ -22,6 +22,35 @@ class Order {
 
   Order(OrderType type, ticker_t ticker, price_t price, quantity_t quantity,
         unix_time_t timestamp);
+  Order(const Order& other) {
+    order_impl_ = new OrderImpl{
+        other.order_impl_->order_id,       other.order_impl_->ticker,
+        other.order_impl_->type,           other.order_impl_->price,
+        other.order_impl_->quantity,       other.order_impl_->timestamp,
+        other.order_impl_->matching_orders};
+  }
+  Order& operator=(const Order& other) {
+    order_impl_ = new OrderImpl{
+        other.order_impl_->order_id,       other.order_impl_->ticker,
+        other.order_impl_->type,           other.order_impl_->price,
+        other.order_impl_->quantity,       other.order_impl_->timestamp,
+        other.order_impl_->matching_orders};
+    return *this;
+  }
+  Order(Order&& other) {
+    this->order_impl_ = other.order_impl_;
+    other.order_impl_ = nullptr;
+  }
+  Order& operator=(Order&& other) {
+    this->order_impl_ = other.order_impl_;
+    other.order_impl_ = nullptr;
+    return *this;
+  }
+
+  ~Order() {
+    if (order_impl_ != nullptr) delete order_impl_;
+    order_impl_ = nullptr;
+  }
 
   bool operator<(const Order& other) const;
   bool operator>(const Order& other) const;
@@ -36,18 +65,20 @@ class Order {
   quantity_t GetQuantity() const;
   void Match(order_id_t, quantity_t) const;
 
+  struct OrderImpl {
+    order_id_t order_id;
+    ticker_t ticker;
+    OrderType type;
+    price_t price;
+    quantity_t quantity;
+    unix_time_t timestamp;
+    std::vector<std::pair<order_id_t, quantity_t>> matching_orders;
+  };
+
  private:
   friend OrderMatchingEngine;
   Order();
-  mutable order_id_t order_id_;
-
-  ticker_t ticker_;
-  OrderType type_;
-  price_t price_;
-  mutable quantity_t quantity_;
-  unix_time_t timestamp_;
-
-  mutable std::vector<std::pair<order_id_t, quantity_t>> matching_orders_;
+  struct OrderImpl* order_impl_ = nullptr;
 };
 
 class SingleTickerOrderBook {
