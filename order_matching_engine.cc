@@ -61,8 +61,8 @@ void Order::Match(order_id_t order_id, quantity_t quantity) const {
   return order_impl_->matching_orders.push_back({order_id, quantity});
 }
 
-std::vector<std::pair<price_t, quantity_t>> SingleTickerOrderBook::GetNthBuy(
-    int nth) {
+std::vector<std::pair<price_t, quantity_t>>
+PriorityQueueBasedSingleTickerOrderBook::GetNthBuy(int nth) {
   std::unique_lock<std::mutex> _(mtx_);
   std::vector<Order> top_orders;
   while (top_orders.size() < nth && !buy_side_orders_.empty()) {
@@ -81,8 +81,8 @@ std::vector<std::pair<price_t, quantity_t>> SingleTickerOrderBook::GetNthBuy(
   return ret;
 }
 
-std::vector<std::pair<price_t, quantity_t>> SingleTickerOrderBook::GetNthSell(
-    int nth) {
+std::vector<std::pair<price_t, quantity_t>>
+PriorityQueueBasedSingleTickerOrderBook::GetNthSell(int nth) {
   std::unique_lock<std::mutex> _(mtx_);
   std::vector<Order> top_orders;
   while (top_orders.size() < nth && !sell_side_orders_.empty()) {
@@ -101,7 +101,7 @@ std::vector<std::pair<price_t, quantity_t>> SingleTickerOrderBook::GetNthSell(
   return ret;
 }
 
-void SingleTickerOrderBook::ProcessNewOrder(Order& order) {
+void PriorityQueueBasedSingleTickerOrderBook::ProcessNewOrder(Order& order) {
   std::unique_lock<std::mutex> _(mtx_);
   auto unfulfilled_quantity = order.GetQuantity();
   if (order.IsBuyOrder()) {
@@ -184,9 +184,19 @@ void OrderMatchingEngine::AddOrder(Order&& order) {
   cv_.notify_one();
 }
 
-void OrderMatchingEngine::SetUp(const std::unordered_set<ticker_t>& tickers) {
+void OrderMatchingEngine::SetUp(OrderBookType type,
+                                const std::unordered_set<ticker_t>& tickers) {
   for (auto ticker : tickers) {
-    books_[ticker] = std::make_shared<SingleTickerOrderBook>();
+    switch (type) {
+      case OrderBookType::PRIORITY_QUEUE:
+        books_[ticker] =
+            std::make_shared<PriorityQueueBasedSingleTickerOrderBook>();
+        break;
+
+      default:
+        throw std::runtime_error("Unknown OrderBookType");
+        break;
+    }
   }
 }
 

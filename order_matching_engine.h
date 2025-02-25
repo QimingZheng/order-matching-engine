@@ -85,10 +85,18 @@ class Order {
 
 class SingleTickerOrderBook {
  public:
-  void ProcessNewOrder(Order& order);
+  virtual void ProcessNewOrder(Order& order) = 0;
 
-  std::vector<std::pair<price_t, quantity_t>> GetNthBuy(int nth);
-  std::vector<std::pair<price_t, quantity_t>> GetNthSell(int nth);
+  virtual std::vector<std::pair<price_t, quantity_t>> GetNthBuy(int nth) = 0;
+  virtual std::vector<std::pair<price_t, quantity_t>> GetNthSell(int nth) = 0;
+};
+
+class PriorityQueueBasedSingleTickerOrderBook : public SingleTickerOrderBook {
+ public:
+  void ProcessNewOrder(Order& order) override;
+
+  std::vector<std::pair<price_t, quantity_t>> GetNthBuy(int nth) override;
+  std::vector<std::pair<price_t, quantity_t>> GetNthSell(int nth) override;
 
  private:
   ticker_t ticker_;
@@ -101,6 +109,10 @@ class SingleTickerOrderBook {
   std::vector<Order> fulfilled_orders_;
 };
 
+enum class OrderBookType {
+  PRIORITY_QUEUE,
+};
+
 class OrderMatchingEngine {
  public:
   OrderMatchingEngine(size_t thread_num);
@@ -109,7 +121,7 @@ class OrderMatchingEngine {
   std::vector<std::pair<price_t, quantity_t>> GetNthBuy(ticker_t, int);
   std::vector<std::pair<price_t, quantity_t>> GetNthSell(ticker_t, int);
 
-  void SetUp(const std::unordered_set<ticker_t>&);
+  void SetUp(OrderBookType type, const std::unordered_set<ticker_t>&);
 
   OrderMatchingEngine(const OrderMatchingEngine&) = delete;
   OrderMatchingEngine& operator=(const OrderMatchingEngine&) = delete;

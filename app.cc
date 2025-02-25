@@ -5,7 +5,7 @@
 int main() {
   OrderMatchingEngine engine(4);
   auto tickers = std::vector<ticker_t>{"GOOG", "MSFT", "META", "AMZN"};
-  engine.SetUp({"GOOG", "MSFT", "META", "AMZN"});
+  engine.SetUp(OrderBookType::PRIORITY_QUEUE, {"GOOG", "MSFT", "META", "AMZN"});
   auto mean_prices = std::vector<price_t>{100.0, 200.0, 300., 400.};
   for (auto i = 0; i < 1000000; i++) {
     auto id = random() % 4;
