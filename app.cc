@@ -12,7 +12,7 @@ int main() {
       auto id = random() % 4;
       auto ticker = tickers[id];
       engine.AddOrder(
-          {random() % 2 ? Order::OrderType::BUY : Order::OrderType::SELL,
+          {random() % 2 ? Order::OrderSide::BUY : Order::OrderSide::SELL,
            tickers[id], mean_prices[id] + random() % 50, random() % 1000, i});
       if (i % 100000 == 0) {
         for (auto tickr : tickers) {
@@ -40,7 +40,7 @@ int main() {
       auto id = random() % 4;
       auto ticker = tickers[id];
       engine.AddOrder(
-          {random() % 2 ? Order::OrderType::BUY : Order::OrderType::SELL,
+          {random() % 2 ? Order::OrderSide::BUY : Order::OrderSide::SELL,
            tickers[id], mean_prices[id] + random() % 50, random() % 1000, i});
       if (i % 100000 == 0) {
         for (auto tickr : tickers) {

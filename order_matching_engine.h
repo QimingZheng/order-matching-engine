@@ -18,24 +18,24 @@ class OrderMatchingEngine;
 
 class Order {
  public:
-  enum class OrderType {
+  enum class OrderSide  {
     BUY,
     SELL,
   };
 
-  Order(OrderType type, ticker_t ticker, price_t price, quantity_t quantity,
+  Order(OrderSide side, ticker_t ticker, price_t price, quantity_t quantity,
         unix_time_t timestamp);
   Order(const Order& other) {
     order_impl_ = new OrderImpl{
         other.order_impl_->order_id,       other.order_impl_->ticker,
-        other.order_impl_->type,           other.order_impl_->price,
+        other.order_impl_->side,           other.order_impl_->price,
         other.order_impl_->quantity,       other.order_impl_->timestamp,
         other.order_impl_->matching_orders};
   }
   Order& operator=(const Order& other) {
     order_impl_ = new OrderImpl{
         other.order_impl_->order_id,       other.order_impl_->ticker,
-        other.order_impl_->type,           other.order_impl_->price,
+        other.order_impl_->side,           other.order_impl_->price,
         other.order_impl_->quantity,       other.order_impl_->timestamp,
         other.order_impl_->matching_orders};
     return *this;
@@ -72,7 +72,7 @@ class Order {
   struct OrderImpl {
     order_id_t order_id;
     ticker_t ticker;
-    OrderType type;
+    OrderSide side;
     price_t price;
     quantity_t quantity;
     unix_time_t timestamp;

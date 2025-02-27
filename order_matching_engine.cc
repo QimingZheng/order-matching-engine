@@ -5,13 +5,13 @@
 
 #include "order_matching_engine.h"
 
-Order::Order(OrderType type, ticker_t ticker, price_t price,
+Order::Order(OrderSide side, ticker_t ticker, price_t price,
              quantity_t quantity, unix_time_t timestamp)
     : order_impl_(new Order::OrderImpl{
-          0, ticker, type, price, quantity, timestamp, {}}) {}
+          0, ticker, side, price, quantity, timestamp, {}}) {}
 
 bool Order::operator<(const Order& other) const {
-  if (order_impl_->type == OrderType::BUY) {
+  if (order_impl_->side == OrderSide::BUY) {
     if (order_impl_->price != other.order_impl_->price) {
       return order_impl_->price < other.order_impl_->price;
     }
@@ -32,11 +32,11 @@ ticker_t& Order::GetTicker() {
 }
 bool Order::IsBuyOrder() const {
   assert(order_impl_ != nullptr);
-  return order_impl_->type == OrderType::BUY;
+  return order_impl_->side == OrderSide::BUY;
 }
 bool Order::IsSellOrder() const {
   assert(order_impl_ != nullptr);
-  return order_impl_->type == OrderType::SELL;
+  return order_impl_->side == OrderSide::SELL;
 }
 order_id_t Order::GetOrderId() const {
   assert(order_impl_ != nullptr);
