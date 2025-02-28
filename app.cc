@@ -19,7 +19,7 @@ int main() {
           {random() % 2 ? Order::OrderSide::BUY : Order::OrderSide::SELL,
            tickers[id], mean_prices[id] + random() % 50, random() % 1000, i});
       if (i == kSamples - 1) {
-        for (auto tickr : tickers) {
+        for (auto ticker : tickers) {
           auto buy_prices = engine.GetNthBuy(ticker, 5);
           auto sell_prices = engine.GetNthSell(ticker, 5);
           std::cout << ticker << "\n";
@@ -54,7 +54,7 @@ int main() {
           {random() % 2 ? Order::OrderSide::BUY : Order::OrderSide::SELL,
            tickers[id], mean_prices[id] + random() % 50, random() % 1000, i});
       if (i == kSamples - 1) {
-        for (auto tickr : tickers) {
+        for (auto ticker : tickers) {
           auto buy_prices = engine.GetNthBuy(ticker, 5);
           auto sell_prices = engine.GetNthSell(ticker, 5);
           std::cout << ticker << "\n";
