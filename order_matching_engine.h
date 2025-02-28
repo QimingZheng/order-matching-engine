@@ -18,42 +18,13 @@ class OrderMatchingEngine;
 
 class Order {
  public:
-  enum class OrderSide  {
+  enum class OrderSide {
     BUY,
     SELL,
   };
 
   Order(OrderSide side, ticker_t ticker, price_t price, quantity_t quantity,
         unix_time_t timestamp);
-  Order(const Order& other) {
-    order_impl_ = new OrderImpl{
-        other.order_impl_->order_id,       other.order_impl_->ticker,
-        other.order_impl_->side,           other.order_impl_->price,
-        other.order_impl_->quantity,       other.order_impl_->timestamp,
-        other.order_impl_->matching_orders};
-  }
-  Order& operator=(const Order& other) {
-    order_impl_ = new OrderImpl{
-        other.order_impl_->order_id,       other.order_impl_->ticker,
-        other.order_impl_->side,           other.order_impl_->price,
-        other.order_impl_->quantity,       other.order_impl_->timestamp,
-        other.order_impl_->matching_orders};
-    return *this;
-  }
-  Order(Order&& other) {
-    this->order_impl_ = other.order_impl_;
-    other.order_impl_ = nullptr;
-  }
-  Order& operator=(Order&& other) {
-    this->order_impl_ = other.order_impl_;
-    other.order_impl_ = nullptr;
-    return *this;
-  }
-
-  ~Order() {
-    if (order_impl_ != nullptr) delete order_impl_;
-    order_impl_ = nullptr;
-  }
 
   bool operator<(const Order& other) const;
   bool operator>(const Order& other) const;
@@ -82,7 +53,7 @@ class Order {
  private:
   friend OrderMatchingEngine;
   Order();
-  struct OrderImpl* order_impl_ = nullptr;
+  std::shared_ptr<struct OrderImpl> order_impl_ = nullptr;
 };
 
 class SingleTickerOrderBook {
@@ -119,8 +90,8 @@ class TableBasedSingleTickerOrderBook : public SingleTickerOrderBook {
   std::vector<std::pair<price_t, quantity_t>> GetNthSell(int nth) override;
 
  private:
-  Order& GetHighestBuy();
-  Order& GetLowestSell();
+  Order GetHighestBuy();
+  Order GetLowestSell();
   void PopHighestBuy();
   void PopLowestSell();
   void InsertBuy(Order&);

@@ -1,9 +1,9 @@
+#include "order_matching_engine.h"
+
 #include <assert.h>
 
 #include <algorithm>
 #include <iostream>
-
-#include "order_matching_engine.h"
 
 Order::Order(OrderSide side, ticker_t ticker, price_t price,
              quantity_t quantity, unix_time_t timestamp)
@@ -79,7 +79,7 @@ PriorityQueueBasedSingleTickerOrderBook::GetNthBuy(int nth) {
                    return {order.GetPrice(), order.GetQuantity()};
                  });
   while (!top_orders.empty()) {
-    buy_side_orders_.emplace(std::move(top_orders.back()));
+    buy_side_orders_.emplace(top_orders.back());
     top_orders.pop_back();
   }
   return ret;
@@ -99,7 +99,7 @@ PriorityQueueBasedSingleTickerOrderBook::GetNthSell(int nth) {
                    return {order.GetPrice(), order.GetQuantity()};
                  });
   while (!top_orders.empty()) {
-    sell_side_orders_.emplace(std::move(top_orders.back()));
+    sell_side_orders_.emplace(top_orders.back());
     top_orders.pop_back();
   }
   return ret;
@@ -117,14 +117,14 @@ void PriorityQueueBasedSingleTickerOrderBook::ProcessNewOrder(Order& order) {
           order.Match(best_sell.GetOrderId(), match_quantity);
           best_sell.Match(order.GetOrderId(), match_quantity);
           unfulfilled_quantity = order.GetQuantity();
-          fulfilled_orders_.emplace_back(std::move(order));
+          fulfilled_orders_.emplace_back(order);
           break;
         } else {
           auto match_quantity = best_sell.GetQuantity();
           order.Match(best_sell.GetOrderId(), match_quantity);
           best_sell.Match(order.GetOrderId(), match_quantity);
           unfulfilled_quantity = order.GetQuantity();
-          fulfilled_orders_.emplace_back(std::move(best_sell));
+          fulfilled_orders_.emplace_back(best_sell);
           sell_side_orders_.pop();
         }
       } else {
@@ -141,13 +141,13 @@ void PriorityQueueBasedSingleTickerOrderBook::ProcessNewOrder(Order& order) {
           order.Match(best_buy.GetOrderId(), match_quantity);
           best_buy.Match(order.GetOrderId(), match_quantity);
           unfulfilled_quantity = order.GetQuantity();
-          fulfilled_orders_.emplace_back(std::move(order));
+          fulfilled_orders_.emplace_back(order);
           break;
         } else {
           auto match_quantity = best_buy.GetQuantity();
           order.Match(best_buy.GetOrderId(), match_quantity);
           best_buy.Match(order.GetOrderId(), match_quantity);
-          fulfilled_orders_.emplace_back(std::move(best_buy));
+          fulfilled_orders_.emplace_back(best_buy);
           unfulfilled_quantity = order.GetQuantity();
           buy_side_orders_.pop();
         }
@@ -165,21 +165,21 @@ void TableBasedSingleTickerOrderBook::ProcessNewOrder(Order& order) {
   auto unfulfilled_quantity = order.GetQuantity();
   if (order.IsBuyOrder()) {
     while (!sell_side_orders_.empty() && order.GetQuantity() > 0) {
-      auto& best_sell = GetLowestSell();
+      auto best_sell = GetLowestSell();
       if (best_sell.GetPrice() <= order.GetPrice()) {
         if (best_sell.GetQuantity() > order.GetQuantity()) {
           auto match_quantity = order.GetQuantity();
           order.Match(best_sell.GetOrderId(), match_quantity);
           best_sell.Match(order.GetOrderId(), match_quantity);
           unfulfilled_quantity = order.GetQuantity();
-          fulfilled_orders_.emplace_back(std::move(order));
+          fulfilled_orders_.emplace_back(order);
           break;
         } else {
           auto match_quantity = best_sell.GetQuantity();
           order.Match(best_sell.GetOrderId(), match_quantity);
           best_sell.Match(order.GetOrderId(), match_quantity);
           unfulfilled_quantity = order.GetQuantity();
-          fulfilled_orders_.emplace_back(std::move(best_sell));
+          fulfilled_orders_.emplace_back(best_sell);
           PopLowestSell();
         }
       } else {
@@ -189,20 +189,20 @@ void TableBasedSingleTickerOrderBook::ProcessNewOrder(Order& order) {
     if (unfulfilled_quantity > 0) InsertBuy(order);
   } else {
     while (!buy_side_orders_.empty() && order.GetQuantity() > 0) {
-      auto& best_buy = GetHighestBuy();
+      auto best_buy = GetHighestBuy();
       if (best_buy.GetPrice() >= order.GetPrice()) {
         if (best_buy.GetQuantity() > order.GetQuantity()) {
           auto match_quantity = order.GetQuantity();
           order.Match(best_buy.GetOrderId(), match_quantity);
           best_buy.Match(order.GetOrderId(), match_quantity);
           unfulfilled_quantity = order.GetQuantity();
-          fulfilled_orders_.emplace_back(std::move(order));
+          fulfilled_orders_.emplace_back(order);
           break;
         } else {
           auto match_quantity = best_buy.GetQuantity();
           order.Match(best_buy.GetOrderId(), match_quantity);
           best_buy.Match(order.GetOrderId(), match_quantity);
-          fulfilled_orders_.emplace_back(std::move(best_buy));
+          fulfilled_orders_.emplace_back(best_buy);
           unfulfilled_quantity = order.GetQuantity();
           PopHighestBuy();
         }
@@ -214,14 +214,14 @@ void TableBasedSingleTickerOrderBook::ProcessNewOrder(Order& order) {
   }
 }
 
-Order& TableBasedSingleTickerOrderBook::GetHighestBuy() {
+Order TableBasedSingleTickerOrderBook::GetHighestBuy() {
   return buy_side_orders_.begin()->second.begin()->second;
 }
-Order& TableBasedSingleTickerOrderBook::GetLowestSell() {
+Order TableBasedSingleTickerOrderBook::GetLowestSell() {
   return sell_side_orders_.begin()->second.begin()->second;
 }
 void TableBasedSingleTickerOrderBook::PopHighestBuy() {
-  buy_side_orders_.begin()->second.erase(
+  buy_side_orders_[buy_side_orders_.begin()->first].erase(
       buy_side_orders_.begin()->second.begin()->first);
 
   if (buy_side_orders_.begin()->second.empty()) {
@@ -229,7 +229,7 @@ void TableBasedSingleTickerOrderBook::PopHighestBuy() {
   }
 }
 void TableBasedSingleTickerOrderBook::PopLowestSell() {
-  sell_side_orders_.begin()->second.erase(
+  sell_side_orders_[sell_side_orders_.begin()->first].erase(
       sell_side_orders_.begin()->second.begin()->first);
   if (sell_side_orders_.begin()->second.empty()) {
     sell_side_orders_.erase(sell_side_orders_.begin());
@@ -239,21 +239,21 @@ void TableBasedSingleTickerOrderBook::InsertBuy(Order& order) {
   if (buy_side_orders_.find(order.GetPrice()) == buy_side_orders_.end()) {
     buy_side_orders_.insert({order.GetPrice(), {}});
   }
-  auto iter = buy_side_orders_.find(order.GetPrice());
-  iter->second.insert({order.GetTimestamp(), order});
+  buy_side_orders_[order.GetPrice()].insert({order.GetTimestamp(), order});
 }
 void TableBasedSingleTickerOrderBook::InsertSell(Order& order) {
   if (sell_side_orders_.find(order.GetPrice()) == sell_side_orders_.end()) {
     sell_side_orders_.insert({order.GetPrice(), {}});
   }
-  auto iter = sell_side_orders_.find(order.GetPrice());
-  iter->second.insert({order.GetTimestamp(), order});
+  sell_side_orders_[order.GetPrice()].insert({order.GetTimestamp(), order});
 }
 
 std::vector<std::pair<price_t, quantity_t>>
 TableBasedSingleTickerOrderBook::GetNthBuy(int nth) {
+  std::unique_lock<std::mutex> _(mtx_);
   auto ret = std::vector<std::pair<price_t, quantity_t>>{};
-  for (auto buys : buy_side_orders_) {
+  for (auto& buys : buy_side_orders_) {
+    if (ret.size() >= nth) break;
     auto sum = 0.0;
     for (auto buy : buys.second) sum += buy.second.GetQuantity();
     ret.push_back({buys.first, sum});
@@ -263,8 +263,10 @@ TableBasedSingleTickerOrderBook::GetNthBuy(int nth) {
 
 std::vector<std::pair<price_t, quantity_t>>
 TableBasedSingleTickerOrderBook::GetNthSell(int nth) {
+  std::unique_lock<std::mutex> _(mtx_);
   auto ret = std::vector<std::pair<price_t, quantity_t>>{};
-  for (auto sells : sell_side_orders_) {
+  for (auto& sells : sell_side_orders_) {
+    if (ret.size() >= nth) break;
     auto sum = 0.0;
     for (auto sell : sells.second) sum += sell.second.GetQuantity();
     ret.push_back({sells.first, sum});
@@ -346,7 +348,7 @@ void OrderMatchingEngine::Execute() {
       if (stopped_ && pending_orders_.empty()) {
         return;
       }
-      order = std::move(pending_orders_.front());
+      order = pending_orders_.front();
       pending_orders_.pop();
     }
     auto iter = books_.find(order.GetTicker());
